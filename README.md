@@ -1,6 +1,7 @@
 # Powershell-AD-Scripts
 
-Powershell scripts used to connect to Active Directory Servers (AD) to manage users in a company. Special instructions to individual scripts will be located as comments in the respective script.
+Powershell scripts used to connect to Active Directory Servers (AD) to manage users in a company. Special instructions 
+to individual scripts will be located as comments in the respective script.
 
 To run scripts:
 
