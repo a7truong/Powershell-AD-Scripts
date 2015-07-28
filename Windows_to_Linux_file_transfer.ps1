@@ -1,3 +1,4 @@
+
 ######################################## Introduction ############################################################
 # 
 # NOTES:
@@ -16,7 +17,7 @@
 #
 $smtpServer="YOUR EMAILING SERVER"
 $from = "FROM EMAIL"
-$to = "TO EMAIL"
+$to = "TO EMAIL"     #### $to = "person1@domain.com", "person2@domain.com", "person3@domain.com"
 #
 ######################################## Path Source/Destination #################################################
 ######################################## NEED TO CHANGE INFORMATION ##############################################
@@ -35,83 +36,68 @@ $server2path2 = $pathDestLinux + $fileName
 #
 ######################################### Code Begin #############################################################
 
-# wolfdev11 is Linux
-# check if file exist in MISNAS02 with today's date
-# check if file exist at all
-	# if file exist with todays date, copy to wolfdev11 then strip date in file name
+# if there is a file starting with ccbglint in the path, but not with today's date
+if ((Test-Path $server1path2 -include FILENAME*.txt) -and (-Not (Test-Path $server1path1))) {
 
-# send email for all events, copy, if it doesnt exist at all, or date DNE
+    $body = "<p>Please be advised that the file you are looking for, $fileName does not exist in the following path $server1path. But a file with the prefix FILENAME text file does exist in the path.<br><br><br><br>Do not reply to this automated message.</p>"
+    $subject = "ERROR: File $fileName does not exist, others located."
 
+    # Send email informing that file is not there
+    Send-Mailmessage -smtpServer $smtpServer -from $from -to $to -subject $subject -body $body -bodyasHTML -priority High 
 
-# appends generic prefix file name with date
+    exit 1
+}
 
 # test path to see if file exist in directory
 if (-Not (Test-Path $server1path1)) {
 
-	$body = "<p>Please be advised that the file you are looking for, $fileName does not exist in the following path $server1path.</p>"
-	$subject = "File $fileName does not exist."
+    $body = "<p>Please be advised that the file you are looking for, $fileName does not exist in the following path $server1path1.<br><br><br><br>Do not reply to this automated message.</p>"
+    $subject = "ERROR: File $fileName does not exist."
 
-	# Send email informing that file is not there
-	Send-Mailmessage -smtpServer $smtpServer -from $from -to $to -subject $subject -body $body -bodyasHTML -priority High 
+    # Send email informing that file is not there
+    Send-Mailmessage -smtpServer $smtpServer -from $from -to $to -subject $subject -body $body -bodyasHTML -priority High 
 
-	exit 1
-}
-
-# if there is a file starting with ccbglint in the path, but not with today's date
-if ((Test-Path $server1path2 -include ccbglint*.txt) -and (-Not (Test-Path $server1path1))) {
-
-	$body = "<p>Please be advised that the file you are looking for, $fileName does not exist in the following path $server1path. But a file
-				with the prefix ccbglint text file does exist in the path.</p>"
-	$subject = "File $fileName does not exist, others located."
-
-	# Send email informing that file is not there
-	Send-Mailmessage -smtpServer $smtpServer -from $from -to $to -subject $subject -body $body -bodyasHTML -priority High 
-
-	exit 1
+    exit 1
 }
 
 # if file with todays date exist in path
 if (Test-Path $server1path1) {
-	
-	# Duplicates the file without the date, then deletes it before exiting
-	Copy-Item $server1path1 $noDate
+                
+    # Duplicates the file without the date, then deletes it before exiting
+    Copy-Item -force $server1path1 $noDate
 
     # Load WinSCP .NET assembly
-    Add-Type -Path "C:\Program Files (x86)\WinSCP\WinSCPnet.dll"
- 
+    Add-Type -Path "F:\Program Files (x86)\WinSCP\WinSCPnet.dll"
+
     # Setup session options
     $sessionOptions = New-Object WinSCP.SessionOptions
     $sessionOptions.Protocol = [WinSCP.Protocol]::Sftp
-
-    ############################## NEED TO CHANGE INFORMATION BELOW ###################################################
+    ############################## NEED TO CHANGE INFORMATION BELOW ################################################                
     $sessionOptions.HostName = "SERVER IP/HOST NAME"
     $sessionOptions.UserName = "LOGIN INFORMATION FOR Linux Box"
     $sessionOptions.Password = "PASSWORD"
     $sessionOptions.SshHostKeyFingerprint = "HOSTKEY FINGERPRINT KEY - can be found in Putty registry"
- 	############################## NEED TO CHANGE INFORMATION ABOVE ###################################################
-
-
+    ############################## NEED TO CHAGE INFORMATION ABOVE ###################################################
     $session = New-Object WinSCP.Session
- 
     # Connect
     $session.Open($sessionOptions)
- 
+
     # Upload files
     $transferOptions = New-Object WinSCP.TransferOptions
     $transferOptions.TransferMode = [WinSCP.TransferMode]::Binary
- 
+
     $transferResult = $session.PutFiles($noDate, $pathDestLinux, $False, $transferOptions)
- 
- 	$body = "<p>Please be advised that the file, $fileName has been successfully transferred.</p>"
-	$subject = "File $fileName transferred."
 
-	# Send email informing that file is not there
-	Send-Mailmessage -smtpServer $smtpServer -from $from -to $to -subject $subject -body $body -bodyasHTML -priority High 
+    $body = "<p>Please be advised that the file, $fileName has been successfully transferred. A copy without the date has been placed in $pathSource and $pathDestLinux.<br><br><br><br>Do not reply to this automated message.</p>"
+    $subject = "File $fileName transferred."
 
-	# removes the duplicate file created
-	Remove-Item $noDate
+    # Send email informing that file is not there
+    Send-Mailmessage -smtpServer $smtpServer -from $from -to $to -subject $subject -body $body -bodyasHTML -priority High 
 
-	exit 0
+    # removes the duplicate file created
+    Remove-Item $noDate
+
+    exit 0
 }
 
 ##########################################Code End################################################################
