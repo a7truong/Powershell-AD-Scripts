@@ -53,33 +53,48 @@ $sessionOptions.Password = "PASSWORD"
 $sessionOptions.TlsHostCertificateFingerprint = "FINGERPRINT CERTIFICATE of the HOST NAME ABOVE"
 ############################## NEED TO CHAGE INFORMATION ABOVE #################################################
 $session = New-Object WinSCP.Session
-# Connect
-$session.Open($sessionOptions)
 
-$fileName = "FILE NAME YOU WANT TO UPLOAD"
+try {
+    # Connect
+    $session.Open($sessionOptions)
 
-$pathSrcwithFile = $pathSrc + $filename + "\"
+    $fileName = "FILE NAME YOU WANT TO UPLOAD"
 
-if (-Not (Test-Path $pathSrcwithFile)) {
-    write-host "Not here. $pathSrcwithFile"
-    $body = "<p>File name $fileName does not exist in $pathSrc</p>"
-    $subject = "ERROR: File $latestFile1.name does not exist."
+    $pathSrcwithFile = $pathSrc + $filename + "\"
 
-    # Send email informing that file is not there
-    Send-Mailmessage -smtpServer $smtpServer -from $from -to $to -subject $subject -body $body -bodyasHTML -priority High
+    if (-Not (Test-Path $pathSrcwithFile)) {
+        write-host "Not here. $pathSrcwithFile"
+        $body = "<p>File name $fileName does not exist in $pathSrc</p>"
+        $subject = "ERROR: File $latestFile1.name does not exist."
+
+        # Send email informing that file is not there
+        Send-Mailmessage -smtpServer $smtpServer -from $from -to $to -subject $subject -body $body -bodyasHTML -priority High
+    }
+    elseif (Test-Path $pathSrcwithFile) {
+        # Upload files
+        $transferOptions = New-Object WinSCP.TransferOptions
+        $transferOptions.TransferMode = [WinSCP.TransferMode]::Binary
+
+        $transferResult = $session.PutFiles($pathSrcwithFile, $remotePath, $False, $transferOptions)
+        $body = "<p>File has been successfully uploaded from $pathSrcwithFile to $remotePath</p>"
+        $subject = "File $fileName uploaded."
+
+        # Send email informing that file is not there
+        Send-Mailmessage -smtpServer $smtpServer -from $from -to $to -subject $subject -body $body -bodyasHTML -priority High 
+        write-host "Successful upload from $pathSrcwithFile to $remotePath"
+    }
 }
-elseif (Test-Path $pathSrcwithFile) {
-    # Upload files
-    $transferOptions = New-Object WinSCP.TransferOptions
-    $transferOptions.TransferMode = [WinSCP.TransferMode]::Binary
-
-    $transferResult = $session.PutFiles($pathSrcwithFile, $remotePath, $False, $transferOptions)
-    $body = "<p>File has been successfully uploaded from $pathSrcwithFile to $remotePath</p>"
-    $subject = "File $fileName uploaded."
+catch [Exception] {
+    $body = "<p>Error connecting to server.</p>"
+    $subject = "Connection Terminated"
 
     # Send email informing that file is not there
     Send-Mailmessage -smtpServer $smtpServer -from $from -to $to -subject $subject -body $body -bodyasHTML -priority High 
-    write-host "Successful upload from $pathSrcwithFile to $remotePath"
+    Write-Host $_.Exception.Message
+    exit 1
+}
+finally {
+    $session.Dispose()
 }
 
 ################################################### Code End ###################################################
