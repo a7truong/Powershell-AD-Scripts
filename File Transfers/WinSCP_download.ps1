@@ -52,35 +52,50 @@ $sessionOptions.TlsHostCertificateFingerprint = "FINGERPRINT CERTIFICATE of the 
 ############################## NEED TO CHAGE INFORMATION ABOVE #################################################
 
 $session = New-Object WinSCP.Session
-# Connect
-$session.Open($sessionOptions)
 
-$directoryInfo = $session.ListDirectory($remotePath)
+try {
+    # Connect
+    $session.Open($sessionOptions)
 
-# gets the file name of most recent updated copy with the file name you want wildcard
-$latestFile1 = $directoryInfo.Files | Where-Object { -Not $_.IsDirectory -and $_.name -like "NAME OF FILE YOU WANT TO FIND" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    $directoryInfo = $session.ListDirectory($remotePath)
 
-$remotePathwithFile = $remotePath + $latestFile1
-if (-Not ($session.FileExists($remotePathwithFile))) {
-    write-host "No file $remotePathwithFile"
-    $body = "<p>File name $latestFile1.name does not exist in $remotePathwithFile</p>"
-    $subject = "ERROR: File $latestFile1.name does not exist."
+    # gets the file name of most recent updated copy with the TELEBANK.*.txt wildcard
+    $latestFile1 = $directoryInfo.Files | Where-Object { -Not $_.IsDirectory } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 
-    # Send email informing that file is not there
-    Send-Mailmessage -smtpServer $smtpServer -from $from -to $to -subject $subject -body $body -bodyasHTML -priority High 
+    $remotePathwithFile = $remotePath + $latestFile1
+    $rp = "/outbound/" + $latestFile1
+    if (-Not ($session.FileExists($remotePathwithFile)) -or $latestFile1 -eq $Null) {
+        write-host "No file $remotePathwithFile"
+        $body = "<p>File name $latestFile1.name does not exist in $remotePathwithFile</p>"
+        $subject = "ERROR: File $latestFile1.name does not exist."
+
+        # Send email informing that file is not there
+        Send-Mailmessage -smtpServer $smtpServer -from $from -to $to -subject $subject -body $body -bodyasHTML -priority High 
+    }
+    else {     
+        $transferOptions = New-Object WinSCP.TransferOptions
+        $transferOptions.TransferMode = [WinSCP.TransferMode]::Binary
+
+        $transferResult = $session.GetFiles($session.EscapeFileMask($remotePathwithFile), $pathDest, $False, $transferOptions)
+
+        write-host "$remotePathwithFile downloaded"
+        $body = "<p>File has been successfully downloaded from $remotePathwithFile to $pathDesk</p>"
+        $subject = "File $latestFile1 downloaded."
+
+        # Send email informing that file is not there
+        Send-Mailmessage -smtpServer $smtpServer -from $from -to $to -subject $subject -body $body -bodyasHTML -priority High 
+    }
 }
-else {    
-    # Upload files
-    $transferOptions = New-Object WinSCP.TransferOptions
-    $transferOptions.TransferMode = [WinSCP.TransferMode]::Binary
-
-    $transferResult = $session.GetFiles($session.EscapeFileMask($remotePathwithFile), $pathDest, $False, $transferOptions)
-
-    write-host "$remotePathwithFile downloaded"
-    $body = "<p>File has been successfully downloaded from $remotePathwithFile to $pathDesk</p>"
-    $subject = "File $latestFile1 downloaded."
+catch [Exception] {
+    $body = "<p>Error connecting to server.</p>"
+    $subject = "Connection Terminated"
 
     # Send email informing that file is not there
     Send-Mailmessage -smtpServer $smtpServer -from $from -to $to -subject $subject -body $body -bodyasHTML -priority High 
+    Write-Host $_.Exception.Message
+    exit 1
+}
+finally {
+    $session.Dispose()
 }
 ################################################### Code End ###################################################
